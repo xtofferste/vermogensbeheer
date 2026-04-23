@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vermogensbeheer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f3;color:#1a1a1a;min-height:100vh;padding:24px 16px}
+.container{max-width:960px;margin:0 auto}
+h1{font-size:22px;font-weight:500;margin-bottom:24px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid rgba(0,0,0,0.1);margin-bottom:1.5rem}
+.tab{padding:8px 16px;font-size:14px;cursor:pointer;border:none;background:none;color:#666;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:#1a1a1a;border-bottom:2px solid #1a1a1a;font-weight:500}
+.tab:hover:not(.active){color:#1a1a1a}
+.section{display:none}.section.active{display:block}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.5rem}
+.metric{background:#ebebea;border-radius:8px;padding:12px 14px}
+.metric-label{font-size:12px;color:#666;margin-bottom:4px}
+.metric-value{font-size:20px;font-weight:500}
+.metric-sub{font-size:11px;color:#999;margin-top:2px}
+.card{background:#fff;border:0.5px solid rgba(0,0,0,0.12);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:500;color:#666;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.04em}
+.bank-block{margin-bottom:1rem}
+.bank-header{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f5f5f3;border-radius:8px;margin-bottom:4px;cursor:pointer}
+.bank-name{font-size:14px;font-weight:500;flex:1}
+.bank-toggle{font-size:11px;color:#999;transition:transform 0.2s;display:inline-block}
+.bank-toggle.open{transform:rotate(90deg)}
+.bank-body{padding-left:12px;border-left:2px solid rgba(0,0,0,0.08);margin-left:8px;margin-top:4px}
+.account-block{margin-bottom:10px}
+.account-header{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:#fafafa;border:0.5px solid rgba(0,0,0,0.08)}
+.account-name{flex:1;font-size:13px;font-weight:500}
+.account-total{font-size:13px;font-weight:500;white-space:nowrap}
+.type-badge{font-size:10px;padding:2px 7px;border-radius:6px;background:#ebebea;color:#666;white-space:nowrap}
+.type-badge.effecten{background:#e6f1fb;color:#185fa5}
+.holdings{padding:4px 0 4px 10px;border-left:2px solid rgba(0,0,0,0.05);margin-left:6px;margin-top:4px}
+.h-header{display:grid;grid-template-columns:70px 1fr 60px 90px 80px 58px 24px;gap:6px;padding:4px 0 6px;font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.04em;border-bottom:0.5px solid rgba(0,0,0,0.08)}
+.h-header span:nth-child(n+3){text-align:right}
+.h-row{display:grid;grid-template-columns:70px 1fr 60px 90px 80px 58px 24px;gap:6px;align-items:center;padding:6px 0;border-bottom:0.5px solid rgba(0,0,0,0.06);font-size:12px}
+.h-row:last-child{border-bottom:none}
+.h-ticker{font-weight:500;color:#185fa5}
+.h-name{color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.h-right{text-align:right;color:#666}
+.h-val{text-align:right;font-weight:500}
+.h-chg{text-align:right;font-size:11px}
+.h-chg.pos{color:#3b6d11}.h-chg.neg{color:#a32d2d}.h-chg.neu{color:#999}
+.btn-del{border:none;background:none;cursor:pointer;color:#ccc;font-size:12px;padding:0}
+.btn-del:hover{color:#e24b4a}
+.search-wrap{position:relative;flex:2;min-width:150px}
+.search-input{width:100%;height:32px;font-size:13px;padding:0 8px;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;background:#fff;outline:none}
+.search-input:focus{border-color:#185fa5}
+.search-dropdown{position:absolute;top:36px;left:0;right:0;background:#fff;border:0.5px solid rgba(0,0,0,0.15);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;max-height:220px;overflow-y:auto}
+.search-item{padding:8px 12px;cursor:pointer;border-bottom:0.5px solid rgba(0,0,0,0.06)}
+.search-item:last-child{border-bottom:none}
+.search-item:hover{background:#f5f5f3}
+.search-item-name{font-size:13px;font-weight:500;color:#1a1a1a}
+.search-item-meta{font-size:11px;color:#888;margin-top:1px}
+.search-selected{display:flex;align-items:center;gap:6px;padding:4px 8px;background:#e6f1fb;border-radius:6px;font-size:12px;color:#185fa5;margin-top:4px}
+.search-selected button{border:none;background:none;color:#185fa5;cursor:pointer;font-size:12px;padding:0 2px}
+.add-holding-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.06)}
+.add-holding-form input{height:32px;font-size:13px;padding:0 8px;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;background:#fff;outline:none}
+.shares-input{width:100px}
+.btn-fetch{height:32px;padding:0 14px;font-size:13px;background:#185fa5;color:#fff;border:none;border-radius:8px;cursor:pointer;white-space:nowrap}
+.btn-fetch:hover{opacity:.88}.btn-fetch:disabled{opacity:.5;cursor:default}
+.btn-refresh{font-size:11px;padding:2px 8px;border:0.5px solid #185fa5;border-radius:6px;background:none;color:#185fa5;cursor:pointer}
+.btn-refresh:hover{background:#e6f1fb}.btn-refresh:disabled{opacity:.5;cursor:default}
+.status-msg{font-size:11px;color:#666;margin-top:4px;min-height:16px}
+.status-msg.err{color:#a32d2d}
+.item-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid rgba(0,0,0,0.08)}
+.item-row:last-child{border-bottom:none}
+.item-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.item-name{flex:1;font-size:13px}
+.item-amount{font-size:13px;font-weight:500}
+.item-pct{font-size:11px;color:#666;min-width:38px;text-align:right}
+.btn-sm{font-size:11px;padding:3px 8px;border:0.5px solid rgba(0,0,0,0.2);border-radius:6px;background:none;cursor:pointer;color:#666}
+.btn-sm:hover{background:#f5f5f3}
+.btn-sm.del{border-color:transparent;color:#ccc}
+.btn-sm.del:hover{color:#e24b4a;background:none}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:6px;font-weight:500;margin-left:4px;background:#f0eeea;color:#666}
+.badge.irr{background:#e6f1fb;color:#185fa5}
+.badge.mm{background:#eeedfe;color:#534ab7}
+.badge.usd{background:#faeeda;color:#854f0b}
+.badge.eur{background:#eaf3de;color:#3b6d11}
+.add-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;padding-top:10px;border-top:0.5px solid rgba(0,0,0,0.08)}
+.add-form input,.add-form select{height:32px;font-size:13px;padding:0 8px;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;background:#fff;outline:none}
+.add-form input[type=text]{flex:2;min-width:110px}
+.add-form input[type=number]{flex:1;min-width:75px}
+.add-form input[type=date]{flex:1;min-width:120px}
+.add-form select{flex:1;min-width:90px}
+.btn-add{height:32px;padding:0 14px;font-size:13px;border:none;border-radius:8px;background:#1a1a1a;color:#fff;cursor:pointer;white-space:nowrap}
+.btn-add:hover{opacity:.85}
+.chart-wrap{position:relative;width:100%;height:220px}
+.pct-bar-wrap{margin-bottom:8px}
+.pct-bar-label{display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:3px}
+.pct-bar-track{height:6px;background:#ebebea;border-radius:3px;overflow:hidden}
+.pct-bar-fill{height:100%;border-radius:3px;transition:width 0.4s}
+.empty{font-size:13px;color:#bbb;padding:12px 0;text-align:center}
+.bank-add-form{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:0.5px solid rgba(0,0,0,0.08)}
+.bank-add-form input{height:30px;font-size:13px;padding:0 8px;border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;background:#fff;outline:none;flex:1}
+.btn-add-sm{height:30px;padding:0 12px;font-size:12px;border:none;border-radius:8px;background:#1a1a1a;color:#fff;cursor:pointer}
+.form-label{font-size:11px;color:#666;margin-bottom:3px;display:block}
+.form-group{display:flex;flex-direction:column}
+.pe-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:1rem}
+.updated-lbl{font-size:10px;color:#aaa;margin-left:4px}
+.acc-add-wrap{margin-top:10px;padding-top:10px;border-top:0.5px solid rgba(0,0,0,0.08)}
+.searching-msg{font-size:11px;color:#888;padding:8px 12px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Vermogensbeheer</h1>
+<div class="tabs">
+  <button class="tab active" onclick="showTab('overzicht')">Overzicht</button>
+  <button class="tab" onclick="showTab('banken')">Banken</button>
+  <button class="tab" onclick="showTab('pe')">Private equity</button>
+  <button class="tab" onclick="showTab('vastgoed')">Vastgoed</button>
+  <button class="tab" onclick="showTab('overig')">Overig</button>
+</div>
+
+<div id="sec-overzicht" class="section active">
+  <div class="metric-grid" id="metrics"></div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px">
+    <div class="card"><div class="card-title">Spreiding per categorie</div><div id="pct-bars"></div></div>
+    <div class="card"><div class="card-title">Verdeling</div><div class="chart-wrap"><canvas id="pieChart"></canvas></div></div>
+  </div>
+  <div class="card" style="margin-top:0"><div class="card-title">Alle posities</div><div id="all-items"></div></div>
+</div>
+
+<div id="sec-banken" class="section">
+  <div class="card">
+    <div class="card-title">Banken, rekeningen &amp; effecten</div>
+    <div id="bank-list"></div>
+    <div class="bank-add-form">
+      <input type="text" id="new-bank-name" placeholder="Nieuwe bank toevoegen (bv. KBC)">
+      <button class="btn-add-sm" onclick="addBank()">+ Bank</button>
+    </div>
+  </div>
+</div>
+
+<div id="sec-pe" class="section">
+  <div class="pe-summary" id="pe-summary"></div>
+  <div class="card">
+    <div class="card-title">Fondsen &amp; participaties</div>
+    <div id="list-pe"></div>
+    <div class="add-form" style="margin-top:14px">
+      <div class="form-group"><span class="form-label">Naam</span><input type="text" id="pe-name" placeholder="Naam fonds"></div>
+      <div class="form-group"><span class="form-label">Munt</span><select id="pe-munt"><option value="EUR">EUR</option><option value="USD">USD</option></select></div>
+      <div class="form-group"><span class="form-label">Startdatum</span><input type="date" id="pe-start"></div>
+      <div class="form-group"><span class="form-label">Toegezegd (€)</span><input type="number" id="pe-toegezegd" placeholder="0" min="0"></div>
+      <div class="form-group"><span class="form-label">Volstort (€)</span><input type="number" id="pe-volstort" placeholder="0" min="0"></div>
+      <div class="form-group"><span class="form-label">Uitgekeerd (€)</span><input type="number" id="pe-uitgekeerd" placeholder="0" min="0"></div>
+      <div class="form-group"><span class="form-label">NIW (€)</span><input type="number" id="pe-niw" placeholder="0" min="0"></div>
+      <div class="form-group"><span class="form-label">Money multiple</span><input type="number" id="pe-mm" placeholder="1.00" min="0" step="0.01"></div>
+      <div class="form-group"><span class="form-label">IRR (%)</span><input type="number" id="pe-irr" placeholder="0" step="0.01"></div>
+      <div class="form-group" style="justify-content:flex-end"><button class="btn-add" onclick="addPE()">+ Toevoegen</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="sec-vastgoed" class="section">
+  <div class="card">
+    <div class="card-title">Vastgoedportefeuille</div>
+    <div id="list-vastgoed"></div>
+    <div class="add-form">
+      <input type="text" id="vastgoed-name" placeholder="Naam (bv. Appartement Gent)">
+      <input type="number" id="vastgoed-amt" placeholder="Waarde (€)" min="0">
+      <select id="vastgoed-type"><option value="Woning">Eigen woning</option><option value="Verhuur">Verhuurpand</option><option value="Garage">Garage/parking</option><option value="Grond">Grond</option><option value="REITs">REITs</option></select>
+      <button class="btn-add" onclick="addItem('vastgoed')">+ Toevoegen</button>
+    </div>
+  </div>
+</div>
+
+<div id="sec-overig" class="section">
+  <div class="card">
+    <div class="card-title">Overige activa</div>
+    <div id="list-overig"></div>
+    <div class="add-form">
+      <input type="text" id="overig-name" placeholder="Naam (bv. Pensioensparen)">
+      <input type="number" id="overig-amt" placeholder="Waarde (€)" min="0">
+      <select id="overig-type"><option value="Pensioen">Pensioensparen</option><option value="Levensverzekering">Levensverzekering</option><option value="Edelmetalen">Edelmetalen</option><option value="Kunst">Kunst</option><option value="Overig">Overig</option></select>
+      <button class="btn-add" onclick="addItem('overig')">+ Toevoegen</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const COLORS={banken:'#1d9e75',pe:'#378add',vastgoed:'#d85a30',overig:'#7f77dd'};
+const LABELS={banken:'Banken',pe:'Private equity',vastgoed:'Vastgoed',overig:'Overig'};
+const BANK_COLORS=['#1d9e75','#0f6e56','#5dcaa5','#9fe1cb','#085041'];
+const SK='vermogensbeheer_v3';
+const USD_EUR=0.92;
+
+const DEF={
+  banks:[
+    {id:1,name:'ING',collapsed:false,accounts:[{id:1,name:'Zichtrekening',type:'cash',amount:8500,holdings:[]},{id:2,name:'Spaarrekening',type:'cash',amount:12000,holdings:[]}]},
+    {id:2,name:'Belfius',collapsed:false,accounts:[{id:1,name:'Spaarrekening',type:'cash',amount:22000,holdings:[]}]}
+  ],
+  peItems:[
+    {id:1,name:'Freshstream II',munt:'EUR',start:'2022-02-26',toegezegd:125000,volstort:64500,uitgekeerd:8750,niw:63438,mm:1.12,irr:4.69},
+    {id:2,name:'Greyhound Capital Partners III',munt:'USD',start:'2022-06-29',toegezegd:112619,volstort:82603,uitgekeerd:0,niw:87563,mm:1.06,irr:2.61},
+    {id:3,name:'Imec.xpand II',munt:'EUR',start:'2022-09-05',toegezegd:100000,volstort:41000,uitgekeerd:0,niw:41650,mm:1.02,irr:1.02},
+    {id:4,name:'Hummingbird Ventures V',munt:'USD',start:'2023-04-05',toegezegd:109733,volstort:47299,uitgekeerd:0,niw:117019,mm:2.47,irr:76.01},
+    {id:5,name:'Main Capital VIII - MF II',munt:'EUR',start:'2024-02-14',toegezegd:100000,volstort:46000,uitgekeerd:0,niw:50050,mm:1.09,irr:9.71},
+    {id:6,name:'Quaestor Co-Invest 2025',munt:'EUR',start:'2025-03-21',toegezegd:500000,volstort:355000,uitgekeerd:0,niw:359150,mm:1.01,irr:null},
+    {id:7,name:'Revolut Co-Investment',munt:'USD',start:'2025-10-20',toegezegd:128722,volstort:130009,uitgekeerd:0,niw:127194,mm:0.98,irr:null}
+  ],
+  data:{vastgoed:[{id:1,name:'Appartement Brussel',amount:280000,type:'Woning'}],overig:[{id:1,name:'Pensioensparen Fintro',amount:18000,type:'Pensioen'}]},
+  nextBankId:10,nextAccId:100,nextPEId:20,nextHoldId:500,nextItemId:{vastgoed:10,overig:10}
+};
+
+function load(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch(e){}return null;}
+function save(){try{localStorage.setItem(SK,JSON.stringify({banks,peItems,data,nextBankId,nextAccId,nextPEId,nextHoldId,nextItemId}));}catch(e){}}
+
+const sv=load();
+let banks=sv?sv.banks:DEF.banks;
+let peItems=sv?sv.peItems:DEF.peItems;
+let data=sv?sv.data:DEF.data;
+let nextBankId=sv?sv.nextBankId:DEF.nextBankId;
+let nextAccId=sv?sv.nextAccId:DEF.nextAccId;
+let nextPEId=sv?sv.nextPEId:DEF.nextPEId;
+let nextHoldId=sv?(sv.nextHoldId||500):DEF.nextHoldId;
+let nextItemId=sv?sv.nextItemId:DEF.nextItemId;
+let pieChart=null,qCache={};
+
+// Per effectenrekening: geselecteerde ticker opslaan
+const selectedTicker={};
+
+const fmt=n=>new Intl.NumberFormat('nl-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+const fmtP=n=>n==null?'—':n.toLocaleString('nl-BE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const toEur=(p,c)=>c==='USD'?p*USD_EUR:p;
+
+function accVal(a){return a.type==='effecten'?(a.holdings||[]).reduce((s,h)=>s+(h.vEur||0),0):a.amount||0;}
+function bankTot(b){return b.accounts.reduce((s,a)=>s+accVal(a),0);}
+function allBanksTot(){return banks.reduce((s,b)=>s+bankTot(b),0);}
+function peTot(){return peItems.reduce((s,i)=>s+i.niw,0);}
+function catTot(c){return data[c].reduce((s,i)=>s+i.amount,0);}
+function totalAll(){return allBanksTot()+peTot()+Object.keys(data).reduce((s,c)=>s+catTot(c),0);}
+
+// Zoek aandelen via Yahoo Finance autocomplete
+let searchTimers={};
+async function searchSymbols(query){
+  try{
+    const r=await fetch('https://query1.finance.yahoo.com/v1/finance/search?q='+encodeURIComponent(query)+'&quotesCount=8&newsCount=0&enableFuzzyQuery=true&quotesQueryId=tss_match_phrase_query');
+    const j=await r.json();
+    return (j?.quotes||[]).filter(q=>q.quoteType==='EQUITY'||q.quoteType==='ETF'||q.quoteType==='MUTUALFUND').slice(0,6).map(q=>({
+      ticker:q.symbol,
+      name:q.shortname||q.longname||q.symbol,
+      exchange:q.exchDisp||q.exchange||'',
+      type:q.quoteType
+    }));
+  }catch(e){return[];}
+}
+
+async function fetchQuote(ticker){
+  const k=ticker.toUpperCase();
+  if(qCache[k]&&Date.now()-qCache[k].ts<300000)return qCache[k];
+  try{
+    const r=await fetch('https://query1.finance.yahoo.com/v8/finance/chart/'+encodeURIComponent(k)+'?interval=1d&range=2d');
+    const j=await r.json();
+    const m=j?.chart?.result?.[0]?.meta;
+    if(!m||!m.regularMarketPrice)return null;
+    const p=m.regularMarketPrice,prev=m.chartPreviousClose||m.previousClose||p;
+    const q={price:p,change:(p-prev)/prev*100,currency:m.currency||'EUR',name:m.shortName||m.longName||k,ts:Date.now()};
+    qCache[k]=q;return q;
+  }catch(e){return null;}
+}
+
+function onSearchInput(bId,aId){
+  const inputEl=document.getElementById('si-'+bId+'-'+aId);
+  const ddEl=document.getElementById('sd-'+bId+'-'+aId);
+  const query=inputEl.value.trim();
+  const key=bId+'-'+aId;
+
+  // als al geselecteerd en user typt verder, reset selectie
+  if(selectedTicker[key]){
+    selectedTicker[key]=null;
+    renderSearchSelected(bId,aId);
+  }
+
+  if(searchTimers[key])clearTimeout(searchTimers[key]);
+  if(query.length<2){ddEl.innerHTML='';ddEl.style.display='none';return;}
+
+  ddEl.innerHTML='<div class="searching-msg">Zoeken...</div>';
+  ddEl.style.display='block';
+
+  searchTimers[key]=setTimeout(async()=>{
+    const results=await searchSymbols(query);
+    if(!results.length){ddEl.innerHTML='<div class="searching-msg">Geen resultaten gevonden</div>';return;}
+    ddEl.innerHTML=results.map(r=>`<div class="search-item" onclick="selectTicker(${bId},${aId},'${r.ticker}','${r.name.replace(/'/g,"\\'")}','${r.exchange}')">
+      <div class="search-item-name">${r.name}</div>
+      <div class="search-item-meta">${r.ticker} &nbsp;·&nbsp; ${r.exchange} &nbsp;·&nbsp; ${r.type}</div>
+    </div>`).join('');
+  },350);
+}
+
+function selectTicker(bId,aId,ticker,name,exchange){
+  const key=bId+'-'+aId;
+  selectedTicker[key]={ticker,name,exchange};
+  const inputEl=document.getElementById('si-'+bId+'-'+aId);
+  const ddEl=document.getElementById('sd-'+bId+'-'+aId);
+  inputEl.value='';
+  ddEl.style.display='none';
+  renderSearchSelected(bId,aId);
+}
+
+function clearSelected(bId,aId){
+  const key=bId+'-'+aId;
+  selectedTicker[key]=null;
+  renderSearchSelected(bId,aId);
+  document.getElementById('si-'+bId+'-'+aId).value='';
+}
+
+function renderSearchSelected(bId,aId){
+  const key=bId+'-'+aId;
+  const el=document.getElementById('ss-'+bId+'-'+aId);
+  if(!el)return;
+  const sel=selectedTicker[key];
+  if(sel){
+    el.innerHTML='<span style="font-size:12px;font-weight:500;color:#185fa5">'+sel.ticker+'</span><span style="font-size:12px;color:#555;margin-left:4px">'+sel.name+'</span><span style="font-size:11px;color:#aaa;margin-left:4px">'+sel.exchange+'</span><button onclick="clearSelected('+bId+','+aId+')" style="border:none;background:none;color:#aaa;cursor:pointer;margin-left:auto;font-size:12px">✕</button>';
+    el.style.display='flex';
+  } else {
+    el.innerHTML='';el.style.display='none';
+  }
+}
+
+async function addHolding(bId,aId){
+  const key=bId+'-'+aId;
+  const sel=selectedTicker[key];
+  const shares=parseFloat(document.getElementById('hs-'+bId+'-'+aId).value);
+  const st=document.getElementById('hst-'+bId+'-'+aId);
+
+  if(!sel){st.textContent='Zoek en selecteer eerst een aandeel of fonds.';st.className='status-msg err';return;}
+  if(isNaN(shares)||shares<=0){st.textContent='Vul een geldig aantal stuks in.';st.className='status-msg err';return;}
+
+  const acc=banks.find(b=>b.id===bId)?.accounts.find(a=>a.id===aId);
+  if(!acc)return;
+
+  const btn=document.getElementById('hbtn-'+bId+'-'+aId);
+  btn.disabled=true;btn.textContent='Ophalen...';
+  st.textContent='Koers ophalen...';st.className='status-msg';
+
+  const q=await fetchQuote(sel.ticker);
+  btn.disabled=false;btn.textContent='+ Toevoegen';
+
+  if(!q){st.textContent='Koers niet gevonden voor '+sel.ticker+'. Probeer opnieuw.';st.className='status-msg err';return;}
+
+  if(!acc.holdings)acc.holdings=[];
+  acc.holdings.push({
+    id:nextHoldId++,
+    ticker:sel.ticker,shares,
+    price:q.price,currency:q.currency,
+    name:sel.name||q.name,
+    change:q.change,
+    vEur:shares*toEur(q.price,q.currency),
+    upd:new Date().toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'})
+  });
+
+  selectedTicker[key]=null;
+  document.getElementById('si-'+bId+'-'+aId).value='';
+  document.getElementById('hs-'+bId+'-'+aId).value='';
+  renderSearchSelected(bId,aId);
+  st.textContent='';
+  save();renderBanks();renderOverzicht();
+}
+
+async function refreshHoldings(bId,aId){
+  const acc=banks.find(b=>b.id===bId)?.accounts.find(a=>a.id===aId);
+  if(!acc||!acc.holdings?.length)return;
+  const btn=document.getElementById('rbtn-'+bId+'-'+aId);
+  if(btn){btn.disabled=true;btn.textContent='Bezig...';}
+  for(const h of acc.holdings){
+    const q=await fetchQuote(h.ticker);
+    if(q){h.price=q.price;h.currency=q.currency;h.change=q.change;h.vEur=h.shares*toEur(q.price,q.currency);h.upd=new Date().toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit'});}
+  }
+  save();renderBanks();renderOverzicht();
+}
+
+function delHolding(bId,aId,hId){
+  const acc=banks.find(b=>b.id===bId)?.accounts.find(a=>a.id===aId);
+  if(acc)acc.holdings=acc.holdings.filter(h=>h.id!==hId);
+  save();renderBanks();renderOverzicht();
+}
+
+// sluit dropdown bij klik buiten
+document.addEventListener('click',e=>{
+  document.querySelectorAll('.search-dropdown').forEach(dd=>{
+    if(!dd.contains(e.target)&&!e.target.classList.contains('search-input'))dd.style.display='none';
+  });
+});
+
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+  document.querySelector('[onclick="showTab(\''+t+'\')"]').classList.add('active');
+  document.getElementById('sec-'+t).classList.add('active');
+  if(t==='overzicht')renderOverzicht();
+  if(t==='banken')renderBanks();
+  if(t==='pe')renderPE();
+}
+
+function toggleBank(id){const b=banks.find(b=>b.id===id);if(b)b.collapsed=!b.collapsed;renderBanks();}
+
+function addBank(){
+  const n=document.getElementById('new-bank-name').value.trim();
+  if(!n)return;
+  banks.push({id:nextBankId++,name:n,collapsed:false,accounts:[]});
+  document.getElementById('new-bank-name').value='';
+  save();renderBanks();renderOverzicht();
+}
+function delBank(id){banks=banks.filter(b=>b.id!==id);save();renderBanks();renderOverzicht();}
+
+function toggleAccTypeUI(bId){
+  const t=document.getElementById('at-'+bId).value;
+  const w=document.getElementById('aw-'+bId);
+  if(w)w.style.display=t==='effecten'?'none':'flex';
+}
+
+function addAccount(bId){
+  const n=document.getElementById('an-'+bId).value.trim();
+  const t=document.getElementById('at-'+bId).value;
+  if(!n)return;
+  const amt=t==='cash'?parseFloat(document.getElementById('aa-'+bId).value)||0:0;
+  banks.find(b=>b.id===bId).accounts.push({id:nextAccId++,name:n,type:t,amount:amt,holdings:[]});
+  document.getElementById('an-'+bId).value='';
+  const aa=document.getElementById('aa-'+bId);if(aa)aa.value='';
+  save();renderBanks();renderOverzicht();
+}
+
+function delAccount(bId,aId){
+  const b=banks.find(b=>b.id===bId);if(b)b.accounts=b.accounts.filter(a=>a.id!==aId);
+  save();renderBanks();renderOverzicht();
+}
+
+function renderAccount(bId,acc){
+  const total=accVal(acc),isEff=acc.type==='effecten';
+  const upd=isEff&&acc.holdings?.length&&acc.holdings[0].upd?'<span class="updated-lbl">bijgewerkt '+acc.holdings[0].upd+'</span>':'';
+  let holdHtml='';
+  if(isEff){
+    const hh=acc.holdings||[];
+    holdHtml='<div class="holdings">'
+      +(hh.length
+        ?'<div class="h-header"><span>Ticker</span><span>Naam</span><span>Stuks</span><span>Koers</span><span>Waarde</span><span>Dag %</span><span></span></div>'
+         +hh.map(h=>{
+           const cls=h.change>0.01?'pos':h.change<-0.01?'neg':'neu';
+           return '<div class="h-row"><span class="h-ticker">'+h.ticker+'</span><span class="h-name">'+(h.name||'')+'</span><span class="h-right">'+h.shares+'</span><span class="h-right">'+fmtP(h.price)+' '+h.currency+'</span><span class="h-val">'+fmt(h.vEur||0)+'</span><span class="h-chg '+cls+'">'+(h.change>0?'+':'')+h.change.toFixed(2)+'%</span><button class="btn-del" onclick="delHolding('+bId+','+acc.id+','+h.id+')">✕</button></div>';
+         }).join('')
+        :'<div style="font-size:12px;color:#bbb;padding:6px 0">Nog geen posities</div>')
+      // Zoekformulier
+      +'<div class="add-holding-form">'
+        +'<div class="form-group" style="flex:2;min-width:160px">'
+          +'<span class="form-label">Zoek op naam of ticker</span>'
+          +'<div class="search-wrap">'
+            +'<input class="search-input" type="text" id="si-'+bId+'-'+acc.id+'" placeholder="bv. Apple, ASML, IWDA..." oninput="onSearchInput('+bId+','+acc.id+')" autocomplete="off">'
+            +'<div class="search-dropdown" id="sd-'+bId+'-'+acc.id+'" style="display:none"></div>'
+          +'</div>'
+          +'<div class="search-selected" id="ss-'+bId+'-'+acc.id+'" style="display:none"></div>'
+        +'</div>'
+        +'<div class="form-group"><span class="form-label">Aantal stuks</span><input class="shares-input" type="number" id="hs-'+bId+'-'+acc.id+'" placeholder="0" min="0" step="0.001"></div>'
+        +'<div class="form-group" style="justify-content:flex-end"><button class="btn-fetch" id="hbtn-'+bId+'-'+acc.id+'" onclick="addHolding('+bId+','+acc.id+')">+ Toevoegen</button></div>'
+      +'</div>'
+      +'<div id="hst-'+bId+'-'+acc.id+'" class="status-msg"></div>'
+    +'</div>';
+  }
+  return '<div class="account-block">'
+    +'<div class="account-header">'
+      +'<span class="account-name">'+acc.name+'</span>'
+      +'<span class="type-badge'+(isEff?' effecten':'')+'">'+( isEff?'Effecten':'Cash')+'</span>'
+      +(isEff?'<button class="btn-refresh" id="rbtn-'+bId+'-'+acc.id+'" onclick="refreshHoldings('+bId+','+acc.id+')">↻ Refresh</button>'+upd:'')
+      +'<span class="account-total">'+fmt(total)+'</span>'
+      +'<button class="btn-sm del" onclick="delAccount('+bId+','+acc.id+')">✕</button>'
+    +'</div>'
+    +holdHtml
+  +'</div>';
+}
+
+function renderBanks(){
+  const el=document.getElementById('bank-list');
+  if(!banks.length){el.innerHTML='<div class="empty">Nog geen banken</div>';return;}
+  el.innerHTML=banks.map((b,bi)=>{
+    const col=BANK_COLORS[bi%BANK_COLORS.length];
+    const body=b.collapsed?''
+      :'<div class="bank-body">'
+        +b.accounts.map(a=>renderAccount(b.id,a)).join('')
+        +'<div class="acc-add-wrap"><div class="add-form">'
+          +'<div class="form-group"><span class="form-label">Naam</span><input type="text" id="an-'+b.id+'" placeholder="bv. Effectenrekening"></div>'
+          +'<div class="form-group"><span class="form-label">Type</span><select id="at-'+b.id+'" onchange="toggleAccTypeUI('+b.id+')">'
+            +'<option value="cash">Zichtrekening</option><option value="cash">Spaarrekening</option><option value="cash">Termijnrekening</option><option value="effecten">Effectenrekening</option>'
+          +'</select></div>'
+          +'<div class="form-group" id="aw-'+b.id+'" style="display:flex"><span class="form-label">Bedrag (€)</span><input type="number" id="aa-'+b.id+'" placeholder="0" min="0"></div>'
+          +'<div class="form-group" style="justify-content:flex-end"><button class="btn-add" onclick="addAccount('+b.id+')">+ Rekening</button></div>'
+        +'</div></div>'
+      +'</div>';
+    return '<div class="bank-block">'
+      +'<div class="bank-header" onclick="toggleBank('+b.id+')">'
+        +'<span style="width:12px;height:12px;border-radius:50%;background:'+col+';flex-shrink:0"></span>'
+        +'<span class="bank-name">'+b.name+'</span>'
+        +'<span style="font-size:12px;color:#666">'+b.accounts.length+' rek.</span>'
+        +'<span style="font-size:14px;font-weight:500">'+fmt(bankTot(b))+'</span>'
+        +'<span class="bank-toggle'+(b.collapsed?'':' open')+'">&#9658;</span>'
+        +'<button class="btn-sm del" onclick="event.stopPropagation();delBank('+b.id+')">✕</button>'
+      +'</div>'+body+'</div>';
+  }).join('');
+}
+
+function addPE(){
+  const name=document.getElementById('pe-name').value.trim();
+  const niw=parseFloat(document.getElementById('pe-niw').value);
+  if(!name||isNaN(niw))return;
+  peItems.push({id:nextPEId++,name,munt:document.getElementById('pe-munt').value,start:document.getElementById('pe-start').value||null,toegezegd:parseFloat(document.getElementById('pe-toegezegd').value)||0,volstort:parseFloat(document.getElementById('pe-volstort').value)||0,uitgekeerd:parseFloat(document.getElementById('pe-uitgekeerd').value)||0,niw,mm:parseFloat(document.getElementById('pe-mm').value)||null,irr:document.getElementById('pe-irr').value?parseFloat(document.getElementById('pe-irr').value):null});
+  ['pe-name','pe-start','pe-toegezegd','pe-volstort','pe-uitgekeerd','pe-niw','pe-mm','pe-irr'].forEach(id=>document.getElementById(id).value='');
+  save();renderPE();renderOverzicht();
+}
+function delPE(id){peItems=peItems.filter(i=>i.id!==id);save();renderPE();renderOverzicht();}
+
+function renderPE(){
+  const tN=peTot(),tT=peItems.reduce((s,i)=>s+i.toegezegd,0),tV=peItems.reduce((s,i)=>s+i.volstort,0),tU=peItems.reduce((s,i)=>s+i.uitgekeerd,0);
+  const aM=peItems.filter(i=>i.mm).reduce((s,i)=>s+i.mm,0)/(peItems.filter(i=>i.mm).length||1);
+  document.getElementById('pe-summary').innerHTML='<div class="metric"><div class="metric-label">Totale NIW</div><div class="metric-value" style="font-size:17px">'+fmt(tN)+'</div></div><div class="metric"><div class="metric-label">Toegezegd</div><div class="metric-value" style="font-size:17px">'+fmt(tT)+'</div></div><div class="metric"><div class="metric-label">Volstort</div><div class="metric-value" style="font-size:17px">'+fmt(tV)+'</div></div><div class="metric"><div class="metric-label">Uitgekeerd</div><div class="metric-value" style="font-size:17px">'+fmt(tU)+'</div></div><div class="metric"><div class="metric-label">Gem. money multiple</div><div class="metric-value" style="font-size:17px">'+aM.toFixed(2)+'x</div></div>';
+  const el=document.getElementById('list-pe');
+  if(!peItems.length){el.innerHTML='<div class="empty">Nog geen posities</div>';return;}
+  el.innerHTML=peItems.map(i=>'<div style="border:0.5px solid rgba(0,0,0,0.12);border-radius:8px;padding:10px 12px;margin-bottom:8px"><div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px"><span class="item-dot" style="background:#378add;margin-top:4px;flex-shrink:0"></span><div style="flex:1"><div style="font-size:14px;font-weight:500">'+i.name+'</div><div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px"><span class="badge '+(i.munt==='USD'?'usd':'eur')+'">'+i.munt+'</span>'+(i.start?'<span class="badge">Start '+new Date(i.start).toLocaleDateString('nl-BE',{day:'2-digit',month:'2-digit',year:'numeric'})+'</span>':'')+(i.irr!=null?'<span class="badge irr">IRR '+i.irr.toFixed(2)+'%</span>':'')+(i.mm!=null?'<span class="badge mm">'+i.mm.toFixed(2)+'x</span>':'')+'</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:14px;font-weight:500">'+fmt(i.niw)+'</div><div style="font-size:10px;color:#999">NIW</div></div><button class="btn-sm del" onclick="delPE('+i.id+')" style="margin-left:4px">✕</button></div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:8px;border-top:0.5px solid rgba(0,0,0,0.08)"><div style="font-size:11px;color:#666">Toegezegd<span style="display:block;font-size:13px;font-weight:500;color:#1a1a1a">'+fmt(i.toegezegd)+'</span></div><div style="font-size:11px;color:#666">Volstort<span style="display:block;font-size:13px;font-weight:500;color:#1a1a1a">'+fmt(i.volstort)+'</span></div><div style="font-size:11px;color:#666">Uitgekeerd<span style="display:block;font-size:13px;font-weight:500;color:#1a1a1a">'+fmt(i.uitgekeerd)+'</span></div></div></div>').join('');
+}
+
+function addItem(cat){
+  const name=document.getElementById(cat+'-name').value.trim();
+  const amt=parseFloat(document.getElementById(cat+'-amt').value);
+  const type=document.getElementById(cat+'-type').value;
+  if(!name||isNaN(amt)||amt<0)return;
+  data[cat].push({id:nextItemId[cat]++,name,amount:amt,type});
+  document.getElementById(cat+'-name').value='';document.getElementById(cat+'-amt').value='';
+  save();renderList(cat);renderOverzicht();
+}
+function delItem(cat,id){data[cat]=data[cat].filter(i=>i.id!==id);save();renderList(cat);renderOverzicht();}
+function renderList(cat){
+  const el=document.getElementById('list-'+cat);if(!el)return;
+  const tot=totalAll()||1;
+  if(!data[cat].length){el.innerHTML='<div class="empty">Nog geen posities</div>';return;}
+  el.innerHTML=data[cat].map(i=>'<div class="item-row"><span class="item-dot" style="background:'+COLORS[cat]+'"></span><span class="item-name">'+i.name+'<span class="badge">'+i.type+'</span></span><span class="item-amount">'+fmt(i.amount)+'</span><span class="item-pct">'+((i.amount/tot)*100).toFixed(1)+'%</span><button class="btn-sm del" onclick="delItem(\''+cat+'\','+i.id+')">✕</button></div>').join('');
+}
+
+function renderOverzicht(){
+  const total=totalAll();
+  const tB=allBanksTot(),tPE=peTot(),tV=catTot('vastgoed'),tO=catTot('overig');
+  document.getElementById('metrics').innerHTML='<div class="metric"><div class="metric-label">Totaal vermogen</div><div class="metric-value">'+fmt(total)+'</div></div><div class="metric"><div class="metric-label">Banken</div><div class="metric-value" style="color:'+COLORS.banken+';font-size:17px">'+fmt(tB)+'</div><div class="metric-sub">'+(total?((tB/total)*100).toFixed(1):0)+'%</div></div><div class="metric"><div class="metric-label">Private equity</div><div class="metric-value" style="color:'+COLORS.pe+';font-size:17px">'+fmt(tPE)+'</div><div class="metric-sub">'+(total?((tPE/total)*100).toFixed(1):0)+'%</div></div><div class="metric"><div class="metric-label">Vastgoed</div><div class="metric-value" style="color:'+COLORS.vastgoed+';font-size:17px">'+fmt(tV)+'</div><div class="metric-sub">'+(total?((tV/total)*100).toFixed(1):0)+'%</div></div><div class="metric"><div class="metric-label">Overig</div><div class="metric-value" style="color:'+COLORS.overig+';font-size:17px">'+fmt(tO)+'</div><div class="metric-sub">'+(total?((tO/total)*100).toFixed(1):0)+'%</div></div>';
+  const cats=['banken','pe','vastgoed','overig'],vals=[tB,tPE,tV,tO];
+  document.getElementById('pct-bars').innerHTML=cats.map((c,i)=>{const pct=total?((vals[i]/total)*100).toFixed(1):0;return '<div class="pct-bar-wrap"><div class="pct-bar-label"><span>'+LABELS[c]+'</span><span>'+fmt(vals[i])+' · '+pct+'%</span></div><div class="pct-bar-track"><div class="pct-bar-fill" style="width:'+pct+'%;background:'+COLORS[c]+'"></div></div></div>';}).join('');
+  if(pieChart)pieChart.destroy();
+  pieChart=new Chart(document.getElementById('pieChart'),{type:'doughnut',data:{labels:cats.map(c=>LABELS[c]),datasets:[{data:vals,backgroundColor:cats.map(c=>COLORS[c]),borderWidth:2,borderColor:'transparent',hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.label+': '+fmt(ctx.raw)}}}}});
+  const all=[];
+  banks.forEach(b=>b.accounts.forEach(a=>{
+    if(a.type==='effecten')(a.holdings||[]).forEach(h=>all.push({name:b.name+' — '+h.name,amount:h.vEur||0,type:'Aandeel',cat:'banken'}));
+    else all.push({name:b.name+' — '+a.name,amount:a.amount||0,type:'Cash',cat:'banken'});
+  }));
+  peItems.forEach(i=>all.push({name:i.name,amount:i.niw,type:i.munt,cat:'pe'}));
+  ['vastgoed','overig'].forEach(c=>data[c].forEach(i=>all.push({...i,cat:c})));
+  all.sort((a,b)=>b.amount-a.amount);
+  document.getElementById('all-items').innerHTML=all.map(i=>'<div class="item-row"><span class="item-dot" style="background:'+COLORS[i.cat]+'"></span><span class="item-name">'+i.name+'<span class="badge">'+i.type+'</span></span><span style="font-size:11px;color:#666;margin-right:8px">'+LABELS[i.cat]+'</span><span class="item-amount">'+fmt(i.amount)+'</span><span class="item-pct">'+(total?((i.amount/total)*100).toFixed(1):0)+'%</span></div>').join('');
+}
+
+['vastgoed','overig'].forEach(c=>renderList(c));
+renderBanks();renderPE();renderOverzicht();
+</script>
+</body>
+</html>
